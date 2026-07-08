@@ -131,7 +131,6 @@ local function showMessage(text)
 end
 
 local function notify(fmt, ...)
-    log(fmt, ...)
     showMessage("FarmGrid: " .. fmt:format(...))
 end
 
