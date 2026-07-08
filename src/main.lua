@@ -1,4 +1,4 @@
--- FarmGrid: grid-snaps crop placement in Windrose.
+-- ShipShape: grid-snaps crop placement in Windrose.
 -- The placement transform travels as UR5BuildingCommand_PreConstruct.Transform
 -- (a reflected UPROPERTY), wrapped in opaque GAS target data. We catch the
 -- command object on creation and snap its transform in the
@@ -10,7 +10,7 @@ local gridSize = 40.0 -- UU per cell; Alt+Up / Alt+Down tunes in 10uu steps
 local snapEnabled = true
 
 local function Snap(v) return math.floor(v / gridSize + 0.5) * gridSize end
-local function log(fmt, ...) print(("[FarmGrid] " .. fmt .. "\n"):format(...)) end
+local function log(fmt, ...) print(("[ShipShape] " .. fmt .. "\n"):format(...)) end
 
 -- Structural farming pieces (plots, beds, stations) keep the game's native
 -- edge snapping; grid-snapping them tears them apart.
@@ -38,7 +38,7 @@ NotifyOnNewObject("/Script/R5.R5BuildingCommand_PreConstruct", function(cmd)
 end)
 
 RegisterHook("/Script/R5.R5Ability_Building_MakeConstructCommand:MakePreConstructRequest",
-    function(Ability, Handle)
+    function(_Ability, _Handle)
         local cmd = pendingCmd
         pendingCmd = nil
         if not snapEnabled or not cmd or not cmd:IsValid() then return end
@@ -93,7 +93,7 @@ local function showMessageImpl(text)
             -- keep it out of GC's reach
             msgWidget = StaticConstructObject(
                 StaticFindObject("/Script/UMG.TextBlock"), gi,
-                FName("FarmGridMsg"), 0x8)
+                FName("ShipShapeMsg"), 0x8)
             pcall(function() msgWidget:SetJustification(1) end) -- center
         end
         msgWidget:SetText(makeText(text))
@@ -131,7 +131,7 @@ local function showMessage(text)
 end
 
 local function notify(fmt, ...)
-    showMessage("FarmGrid: " .. fmt:format(...))
+    showMessage("ShipShape: " .. fmt:format(...))
 end
 
 RegisterKeyBind(Key.F, { ModifierKey.ALT }, function()

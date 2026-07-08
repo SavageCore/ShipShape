@@ -1,4 +1,4 @@
-# FarmGrid
+# ShipShape
 
 Grid-snapped crop planting for [Windrose](https://store.steampowered.com/app/2372000/), inspired by the Valheim [FarmGrid](https://thunderstore.io/c/valheim/p/Galateam/FarmGrid/) mod. A [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) Lua mod that snaps crop placement - both the ghost preview and the final planted position - to a configurable grid, so your rows come out straight.
 
@@ -24,7 +24,7 @@ Requires UE4SS installed in the game (`Windrose/R5/Binaries/Win64/ue4ss/`).
 2. Extract it into `ue4ss/Mods/` so you end up with:
 
 ```
-ue4ss/Mods/FarmGrid/
+ue4ss/Mods/ShipShape/
 ├── enabled.txt
 └── Scripts/
     └── main.lua
@@ -44,7 +44,7 @@ Known quirk: the preview's valid/invalid (green/red) tint reflects the raw curso
 
 ```sh
 ln -s "$(pwd)/src/main.lua" \
-  "$HOME/.local/share/Steam/steamapps/common/Windrose/R5/Binaries/Win64/ue4ss/Mods/FarmGrid/Scripts/main.lua"
+  "$HOME/.local/share/Steam/steamapps/common/Windrose/R5/Binaries/Win64/ue4ss/Mods/ShipShape/Scripts/main.lua"
 ```
 
 Linting is [luacheck](https://github.com/lunarmodules/luacheck), run in CI and as a [lefthook](https://lefthook.dev) pre-commit hook:

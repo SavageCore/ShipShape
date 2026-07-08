@@ -12,6 +12,9 @@ read_globals = {
     "FindFirstOf",
     "FindAllOf",
     "StaticFindObject",
+    "StaticConstructObject",
+    "FText",
+    "FName",
     "Key",
     "ModifierKey",
 }
