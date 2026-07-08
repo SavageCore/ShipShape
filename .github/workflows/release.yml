@@ -18,7 +18,7 @@ jobs:
           touch ShipShape/enabled.txt
           cp src/main.lua ShipShape/Scripts/main.lua
           zip -r "ShipShape-${GITHUB_REF_NAME}.zip" ShipShape
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: ShipShape-*.zip
           generate_release_notes: true
