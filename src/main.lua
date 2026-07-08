@@ -27,12 +27,7 @@ end
 local function isCrop(cmd)
     local ok, res = pcall(function()
         local item = cmd.BuildingItem
-        if not item:IsValid() then return false end
-        local name = item:GetFullName()
-        local crop = isCropName(name)
-        log("%s %s type=%s", crop and "item" or "skipping",
-            name:match("[^%.]+$") or name, tostring(item.WorldActorType))
-        return crop
+        return item:IsValid() and isCropName(item:GetFullName())
     end)
     return ok and res
 end
@@ -51,12 +46,10 @@ RegisterHook("/Script/R5.R5Ability_Building_MakeConstructCommand:MakePreConstruc
             if not isCrop(cmd) then return end
             local t = cmd.Transform
             local loc = t.Translation
-            local bx, by = loc.X, loc.Y
             loc.X = Snap(loc.X)
             loc.Y = Snap(loc.Y)
             t.Translation = loc
             cmd.Transform = t
-            log("grid=%.0f snapped (%.0f, %.0f) -> (%.0f, %.0f)", gridSize, bx, by, loc.X, loc.Y)
         end)
         if not ok then log("snap error: %s", tostring(err)) end
     end)
@@ -81,7 +74,6 @@ end)
 -- touches the preview MESH components though — so we offset those by
 -- (snapped - raw) instead; nothing races against it.
 -- ponytail: yaw-only rotation math; previews don't pitch/roll on farmland.
--- DEBUG: once-per-second diag lines while a crop preview is active.
 local preview = nil
 local meshBase = nil        -- [i] = original mesh relative location
 local offsetApplied = false
