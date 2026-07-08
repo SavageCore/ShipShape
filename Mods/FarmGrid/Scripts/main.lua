@@ -4,10 +4,12 @@
 -- command object on creation and snap its transform in the
 -- MakePreConstructRequest pre-hook — before the ability validates/serializes
 -- it, so the server receives the snapped position (client-side only in MP).
-local GRID_SIZE = 100.0   -- UU per cell
+-- ponytail: no per-plant footprint — the game has none (crops may overlap
+-- freely); spacing is taste, so it's a live-tunable grid instead.
+local gridSize = 40.0     -- UU per cell; Alt+Up / Alt+Down tunes in 10uu steps
 local snapEnabled = true
 
-local function Snap(v) return math.floor(v / GRID_SIZE + 0.5) * GRID_SIZE end
+local function Snap(v) return math.floor(v / gridSize + 0.5) * gridSize end
 local function log(fmt, ...) print(("[FarmGrid] " .. fmt .. "\n"):format(...)) end
 
 local function isCrop(cmd)
@@ -37,9 +39,7 @@ RegisterHook("/Script/R5.R5Ability_Building_MakeConstructCommand:MakePreConstruc
             loc.Y = Snap(loc.Y)
             t.Translation = loc
             cmd.Transform = t
-            local check = cmd.Transform.Translation
-            log("snapped (%.0f, %.0f) -> (%.0f, %.0f) [readback %.0f, %.0f]",
-                bx, by, Snap(bx), Snap(by), check.X, check.Y)
+            log("grid=%.0f snapped (%.0f, %.0f) -> (%.0f, %.0f)", gridSize, bx, by, loc.X, loc.Y)
         end)
         if not ok then log("snap error: %s", tostring(err)) end
     end)
@@ -49,7 +49,18 @@ RegisterKeyBind(Key.G, { ModifierKey.ALT }, function()
     log("snapping %s", snapEnabled and "ON" or "OFF")
 end)
 
--- debug: confirm where crops actually land
+RegisterKeyBind(Key.UP_ARROW, { ModifierKey.ALT }, function()
+    gridSize = gridSize + 10
+    log("grid size %.0f", gridSize)
+end)
+
+RegisterKeyBind(Key.DOWN_ARROW, { ModifierKey.ALT }, function()
+    gridSize = math.max(10, gridSize - 10)
+    log("grid size %.0f", gridSize)
+end)
+
+-- Confirms the server accepted the placement; silence after a "snapped"
+-- line means the position was rejected (likely too close to another crop).
 NotifyOnNewObject("/Script/R5.R5BuildingBlock_Crop", function(crop)
     if crop:GetFullName():find("Default__") then return end
     ExecuteWithDelay(300, function()
@@ -57,11 +68,10 @@ NotifyOnNewObject("/Script/R5.R5BuildingBlock_Crop", function(crop)
             pcall(function()
                 if not crop:IsValid() then return end
                 local loc = crop:K2_GetActorLocation()
-                log("crop landed at (%.0f, %.0f)%s", loc.X, loc.Y,
-                    (loc.X == Snap(loc.X) and loc.Y == Snap(loc.Y)) and " [on grid]" or " [off grid]")
+                log("crop landed at (%.0f, %.0f)", loc.X, loc.Y)
             end)
         end)
     end)
 end)
 
-log("loaded, grid=%.0f — Alt+G to toggle", GRID_SIZE)
+log("loaded — grid %.0fuu | Alt+G toggle | Alt+Up/Down adjust", gridSize)
