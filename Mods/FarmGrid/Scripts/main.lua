@@ -143,7 +143,6 @@ local function updatePreview()
     local yaw = math.rad(preview:K2_GetActorRotation().Yaw)
     local c, s = math.cos(-yaw), math.sin(-yaw)
     local rdx, rdy = c * dx - s * dy, s * dx + c * dy
-    local count = 0
     meshBase = meshBase or {}
     eachMesh(function(i, m)
         if not meshBase[i] then
@@ -153,10 +152,8 @@ local function updatePreview()
         local b = meshBase[i]
         m:K2_SetRelativeLocation({ X = b.X + rdx, Y = b.Y + rdy, Z = b.Z },
             false, {}, true)
-        count = count + 1
     end)
     offsetApplied = true
-    diag("preview active: meshes=%d delta=(%.1f, %.1f)", count, dx, dy)
 end
 
 -- 33ms and only dispatching while a preview is alive: the always-on 16ms
@@ -169,21 +166,6 @@ LoopAsync(33, function()
         end)
     end
     return false
-end)
-
--- Confirms the server accepted the placement; silence after a "snapped"
--- line means the position was rejected (likely too close to another crop).
-NotifyOnNewObject("/Script/R5.R5BuildingBlock_Crop", function(crop)
-    if crop:GetFullName():find("Default__") then return end
-    ExecuteWithDelay(300, function()
-        ExecuteInGameThread(function()
-            pcall(function()
-                if not crop:IsValid() then return end
-                local loc = crop:K2_GetActorLocation()
-                log("crop landed at (%.0f, %.0f)", loc.X, loc.Y)
-            end)
-        end)
-    end)
 end)
 
 log("loaded — grid %.0fuu | Alt+G toggle | Alt+Up/Down adjust", gridSize)
