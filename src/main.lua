@@ -1,20 +1,12 @@
--- ShipShape: grid-snaps crop placement in Windrose.
--- The placement transform travels as UR5BuildingCommand_PreConstruct.Transform
--- (a reflected UPROPERTY), wrapped in opaque GAS target data. We catch the
--- command object on creation and snap its transform in the
--- MakePreConstructRequest pre-hook - before the ability validates/serializes
--- it, so the server receives the snapped position (client-side only in MP).
--- ponytail: no per-plant footprint - the game has none (crops may overlap
--- freely); spacing is taste, so it's a live-tunable grid instead.
+-- ShipShape: grid-snaps crop placement in Windrose (client-side).
 local gridSize = 40.0 -- UU per cell; Alt+Up / Alt+Down tunes in 10uu steps
 local snapEnabled = true
 
 local function Snap(v) return math.floor(v / gridSize + 0.5) * gridSize end
 local function log(fmt, ...) print(("[ShipShape] " .. fmt .. "\n"):format(...)) end
 
--- Structural farming pieces (plots, beds, stations) keep the game's native
--- edge snapping; grid-snapping them tears them apart.
-local EXCLUDE = { "Soil", "Seedbed", "Flowerbed", "Craftstation", "Trellis" }
+-- these keep native edge snapping;
+local EXCLUDE = { "Seedbed" }
 
 local function isCropName(name)
     if not name:find("_BI_Farming_") then return false end
@@ -54,8 +46,7 @@ RegisterHook("/Script/R5.R5Ability_Building_MakeConstructCommand:MakePreConstruc
         if not ok then log("snap error: %s", tostring(err)) end
     end)
 
--- On-screen messages: a bare UTextBlock added via UGameViewportSubsystem
--- (UE5.2+), top-center, auto-hidden after 2s. No game-UI dependencies.
+-- On-screen messages
 local msgWidget = nil
 local msgGen = 0
 
@@ -82,15 +73,13 @@ local function showMessageImpl(text)
             return
         end
         if not (msgWidget and msgWidget:IsValid()) then
-            -- outer must resolve GetWorld() or AddWidget refuses the widget;
-            -- the GameInstance does, and lives for the whole session
+            -- outer must resolve GetWorld() or AddWidget refuses; GameInstance lives all session
             local gi = FindFirstOf("GameInstance")
             if not gi:IsValid() then
                 log("msg error: no GameInstance")
                 return
             end
-            -- nothing strong-references the widget, so GC may collect it;
-            -- the IsValid check above recreates it when that happens
+            -- GC can collect the widget; IsValid check above recreates it
             msgWidget = StaticConstructObject(
                 StaticFindObject("/Script/UMG.TextBlock"), gi,
                 FName("ShipShapeMsg"), 0)
@@ -100,7 +89,7 @@ local function showMessageImpl(text)
         if not vps:IsWidgetAdded(msgWidget) then
             vps:AddWidget(msgWidget, {
                 Anchors = { Minimum = { X = 0.5, Y = 0.0 }, Maximum = { X = 0.5, Y = 0.0 } },
-                -- point anchors: Left/Top position the box, Right/Bottom SIZE it
+                -- point anchors: Left/Top position, Right/Bottom size
                 Offsets = { Left = 0, Top = 120, Right = 600, Bottom = 50 },
                 Alignment = { X = 0.5, Y = 0.0 },
                 ZOrder = 1000,
@@ -125,8 +114,7 @@ local function showMessageImpl(text)
 end
 
 local function showMessage(text)
-    -- widget/slate work must happen on the game thread; keybind context isn't
-    -- guaranteed to be it
+    -- widget work must run on the game thread
     ExecuteInGameThread(function() showMessageImpl(text) end)
 end
 
@@ -149,11 +137,8 @@ RegisterKeyBind(Key.DOWN_ARROW, { ModifierKey.ALT }, function()
     notify("grid size %.0f", gridSize)
 end)
 
--- Ghost preview: the game rewrites the preview ACTOR transform natively every
--- tick after our queued writes run, so moving the actor never sticks. It never
--- touches the preview MESH components though - so we offset those by
--- (snapped - raw) instead; nothing races against it.
--- ponytail: yaw-only rotation math; previews don't pitch/roll on farmland.
+-- Ghost preview: the game rewrites the preview actor transform every tick,
+-- so offset the mesh components instead
 local preview = nil
 local meshBase = nil -- [i] = original mesh relative location
 local offsetApplied = false
@@ -190,11 +175,8 @@ local function restoreMeshes()
     offsetApplied = false
 end
 
--- Valheim-style grid overlay while placing. DrawDebugLine is compiled out of
--- this shipping build and no HUD blueprint implements ReceiveDrawHUD, so the
--- grid is thin Image widgets reprojected to screen space every preview tick.
--- ponytail: flat plane at preview Z, no terrain conforming - add per-vertex
--- line traces if slopes make it useless.
+-- Grid overlay while placing: Image widgets reprojected to screen space
+-- (DrawDebugLine is compiled out of this build)
 local GRID_CELLS = 4
 local NUM_LINES = (GRID_CELLS + 1) * 2
 local gridWidgets = nil
@@ -203,10 +185,8 @@ local layoutLib = StaticFindObject("/Script/UMG.Default__WidgetLayoutLibrary")
 local statics = StaticFindObject("/Script/Engine.Default__GameplayStatics")
 
 local function ensureGridWidgets()
-    -- nothing strong-references these widgets, so GC (e.g. the pass the game
-    -- runs on alt-tab focus loss) collects them; passing a dangling pointer
-    -- to IsWidgetAdded crashed in FObjectKey's weak-ptr ctor. Validate every
-    -- tick and rebuild the pool after a collection, like msgWidget does.
+    -- GC collects unreferenced widgets; a dangling pointer to IsWidgetAdded
+    -- crashes, so validate and rebuild each tick
     if gridWidgets and gridWidgets[1]:IsValid() then return true end
     local gi = FindFirstOf("GameInstance")
     if not gi:IsValid() then return false end
@@ -244,14 +224,21 @@ local function placeLine(vps, w, ax, ay, bx, by)
     local dx, dy = bx - ax, by - ay
     local slot = {
         Anchors = { Minimum = { X = 0, Y = 0 }, Maximum = { X = 0, Y = 0 } },
-        Offsets = { Left = (ax + bx) / 2, Top = (ay + by) / 2,
-            Right = math.sqrt(dx * dx + dy * dy), Bottom = 2 },
+        Offsets = {
+            Left = (ax + bx) / 2,
+            Top = (ay + by) / 2,
+            Right = math.sqrt(dx * dx + dy * dy),
+            Bottom = 2
+        },
         Alignment = { X = 0.5, Y = 0.5 },
         ZOrder = 999,
         bAutoRemoveOnWorldRemoved = true,
     }
-    if vps:IsWidgetAdded(w) then vps:SetWidgetSlot(w, slot)
-    else vps:AddWidget(w, slot) end
+    if vps:IsWidgetAdded(w) then
+        vps:SetWidgetSlot(w, slot)
+    else
+        vps:AddWidget(w, slot)
+    end
     w:SetRenderTransformAngle(math.deg(math.atan(dy, dx)))
 end
 
@@ -265,23 +252,25 @@ local function drawGrid(cx, cy, z)
     for i = -GRID_CELLS / 2, GRID_CELLS / 2 do
         local o = i * gridSize
         for _, seg in ipairs({
-            { cx - half, cy + o, cx + half, cy + o },
-            { cx + o, cy - half, cx + o, cy + half },
+            { cx - half, cy + o,    cx + half, cy + o },
+            { cx + o,    cy - half, cx + o,    cy + half },
         }) do
             n = n + 1
             local w = gridWidgets[n]
             local ax, ay = project(pc, seg[1], seg[2], z)
             local bx, by = project(pc, seg[3], seg[4], z)
-            if ax and bx then placeLine(vps, w, ax, ay, bx, by)
-            elseif vps:IsWidgetAdded(w) then vps:RemoveWidget(w) end
+            if ax and bx then
+                placeLine(vps, w, ax, ay, bx, by)
+            elseif vps:IsWidgetAdded(w) then
+                vps:RemoveWidget(w)
+            end
         end
     end
     gridVisible = true
 end
 
 local function updatePreview()
-    -- two queued closures can race: the first nils a dead preview, the
-    -- second then sees the nil upvalue
+    -- queued closures can race; the first may have nil'd a dead preview
     if not preview then return end
     if not preview:IsValid() then
         preview = nil
@@ -295,8 +284,7 @@ local function updatePreview()
     end
     local brushName = brush:GetFullName()
     if brushName ~= lastBrush then
-        -- brush changed: the game may have rebuilt the preview meshes, so the
-        -- cached relative locations no longer belong to these components
+        -- brush change may rebuild the preview meshes; drop cached locations
         lastBrush = brushName
         meshBase = nil
         offsetApplied = false
@@ -326,12 +314,8 @@ local function updatePreview()
     offsetApplied = true
 end
 
--- 33ms and only dispatching while a preview is alive: the always-on 16ms
--- dispatch + object scans crashed inside UE4SS (access violation).
--- inFlight: never queue a second closure before the first ran. When the game
--- is unfocused (alt-tab) Proton throttles the game thread, queued closures
--- pile up and then execute in a burst inside one ProcessEvent - crashed with
--- an access violation on the game thread (crash_2026_07_08_11_25_39).
+-- 33ms + preview-gated: faster always-on dispatch crashed UE4SS.
+-- inFlight: queued closures pile up when Proton throttles an unfocused game, then crash.
 local inFlight = false
 local inFlightSince = 0.0
 LoopAsync(33, function()
