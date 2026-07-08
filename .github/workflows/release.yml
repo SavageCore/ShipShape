@@ -1,0 +1,24 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Package mod
+        run: |
+          mkdir -p FarmGrid/Scripts
+          touch FarmGrid/enabled.txt
+          cp src/main.lua FarmGrid/Scripts/main.lua
+          zip -r "FarmGrid-${GITHUB_REF_NAME}.zip" FarmGrid
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: FarmGrid-*.zip
+          generate_release_notes: true
