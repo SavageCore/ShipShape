@@ -4,7 +4,7 @@ MOD_NAME    := ShipShape
 BUILD_DIR   := build/$(MOD_NAME)
 SCRIPTS_DIR := $(BUILD_DIR)/Scripts
 
-.PHONY: all build install clean
+.PHONY: all build install uninstall clean
 
 all: build
 
@@ -20,8 +20,8 @@ $(BUILD_DIR)/enabled.txt:
 
 install: build
 	@mkdir -p $(INSTALL_DIR)/$(MOD_NAME)/Scripts
-	ln -s $(SCRIPTS_DIR)/main.lua $(INSTALL_DIR)/$(MOD_NAME)/Scripts/main.lua
-	ln -s $(BUILD_DIR)/enabled.txt $(INSTALL_DIR)/$(MOD_NAME)/enabled.txt
+	ln -sf $(CURDIR)/$(SCRIPTS_DIR)/main.lua $(INSTALL_DIR)/$(MOD_NAME)/Scripts/main.lua
+	ln -sf $(CURDIR)/$(BUILD_DIR)/enabled.txt $(INSTALL_DIR)/$(MOD_NAME)/enabled.txt
 	@echo "Installed to $(INSTALL_DIR)/$(MOD_NAME)"
 
 uninstall:
