@@ -2,11 +2,11 @@
 -- The placement transform travels as UR5BuildingCommand_PreConstruct.Transform
 -- (a reflected UPROPERTY), wrapped in opaque GAS target data. We catch the
 -- command object on creation and snap its transform in the
--- MakePreConstructRequest pre-hook — before the ability validates/serializes
+-- MakePreConstructRequest pre-hook - before the ability validates/serializes
 -- it, so the server receives the snapped position (client-side only in MP).
--- ponytail: no per-plant footprint — the game has none (crops may overlap
+-- ponytail: no per-plant footprint - the game has none (crops may overlap
 -- freely); spacing is taste, so it's a live-tunable grid instead.
-local gridSize = 40.0     -- UU per cell; Alt+Up / Alt+Down tunes in 10uu steps
+local gridSize = 40.0 -- UU per cell; Alt+Up / Alt+Down tunes in 10uu steps
 local snapEnabled = true
 
 local function Snap(v) return math.floor(v / gridSize + 0.5) * gridSize end
@@ -54,28 +54,109 @@ RegisterHook("/Script/R5.R5Ability_Building_MakeConstructCommand:MakePreConstruc
         if not ok then log("snap error: %s", tostring(err)) end
     end)
 
-RegisterKeyBind(Key.G, { ModifierKey.ALT }, function()
+-- On-screen messages: a bare UTextBlock added via UGameViewportSubsystem
+-- (UE5.2+), top-center, auto-hidden after 2s. No game-UI dependencies.
+local msgWidget = nil
+local msgGen = 0
+
+local function makeText(s)
+    if type(FText) == "function" then return FText(s) end
+    return StaticFindObject("/Script/Engine.Default__KismetTextLibrary")
+        :Conv_StringToText(s)
+end
+
+local function viewportSubsystem()
+    local vps = FindFirstOf("GameViewportSubsystem")
+    if vps:IsValid() then return vps end
+    -- engine subsystems can be missed by FindFirstOf; ask the BP library
+    local cls = StaticFindObject("/Script/UMG.GameViewportSubsystem")
+    return StaticFindObject("/Script/Engine.Default__SubsystemBlueprintLibrary")
+        :GetEngineSubsystem(cls)
+end
+
+local function showMessageImpl(text)
+    local ok, err = pcall(function()
+        local vps = viewportSubsystem()
+        if not vps:IsValid() then
+            log("msg error: no GameViewportSubsystem")
+            return
+        end
+        if not (msgWidget and msgWidget:IsValid()) then
+            -- outer must resolve GetWorld() or AddWidget refuses the widget;
+            -- the GameInstance does, and lives for the whole session
+            local gi = FindFirstOf("GameInstance")
+            if not gi:IsValid() then
+                log("msg error: no GameInstance")
+                return
+            end
+            -- RF_MarkAsRootSet (0x8): nothing else references the widget, so
+            -- keep it out of GC's reach
+            msgWidget = StaticConstructObject(
+                StaticFindObject("/Script/UMG.TextBlock"), gi,
+                FName("FarmGridMsg"), 0x8)
+            pcall(function() msgWidget:SetJustification(1) end) -- center
+        end
+        msgWidget:SetText(makeText(text))
+        if not vps:IsWidgetAdded(msgWidget) then
+            vps:AddWidget(msgWidget, {
+                Anchors = { Minimum = { X = 0.5, Y = 0.0 }, Maximum = { X = 0.5, Y = 0.0 } },
+                -- point anchors: Left/Top position the box, Right/Bottom SIZE it
+                Offsets = { Left = 0, Top = 120, Right = 600, Bottom = 50 },
+                Alignment = { X = 0.5, Y = 0.0 },
+                ZOrder = 1000,
+                bAutoRemoveOnWorldRemoved = true,
+            })
+        end
+        msgGen = msgGen + 1
+        local gen = msgGen
+        ExecuteWithDelay(2000, function()
+            if gen ~= msgGen then return end -- a newer message extended the timer
+            ExecuteInGameThread(function()
+                pcall(function()
+                    local v = FindFirstOf("GameViewportSubsystem")
+                    if msgWidget and msgWidget:IsValid() and v:IsValid() then
+                        v:RemoveWidget(msgWidget)
+                    end
+                end)
+            end)
+        end)
+    end)
+    if not ok then log("msg error: %s", tostring(err)) end
+end
+
+local function showMessage(text)
+    -- widget/slate work must happen on the game thread; keybind context isn't
+    -- guaranteed to be it
+    ExecuteInGameThread(function() showMessageImpl(text) end)
+end
+
+local function notify(fmt, ...)
+    log(fmt, ...)
+    showMessage("FarmGrid: " .. fmt:format(...))
+end
+
+RegisterKeyBind(Key.F, { ModifierKey.ALT }, function()
     snapEnabled = not snapEnabled
-    log("snapping %s", snapEnabled and "ON" or "OFF")
+    notify("snapping %s", snapEnabled and "ON" or "OFF")
 end)
 
 RegisterKeyBind(Key.UP_ARROW, { ModifierKey.ALT }, function()
     gridSize = gridSize + 10
-    log("grid size %.0f", gridSize)
+    notify("grid size %.0f", gridSize)
 end)
 
 RegisterKeyBind(Key.DOWN_ARROW, { ModifierKey.ALT }, function()
     gridSize = math.max(10, gridSize - 10)
-    log("grid size %.0f", gridSize)
+    notify("grid size %.0f", gridSize)
 end)
 
 -- Ghost preview: the game rewrites the preview ACTOR transform natively every
 -- tick after our queued writes run, so moving the actor never sticks. It never
--- touches the preview MESH components though — so we offset those by
+-- touches the preview MESH components though - so we offset those by
 -- (snapped - raw) instead; nothing races against it.
 -- ponytail: yaw-only rotation math; previews don't pitch/roll on farmland.
 local preview = nil
-local meshBase = nil        -- [i] = original mesh relative location
+local meshBase = nil -- [i] = original mesh relative location
 local offsetApplied = false
 local lastBrush = ""
 local lastDiag = 0.0
@@ -163,4 +244,4 @@ LoopAsync(33, function()
     return false
 end)
 
-log("loaded — grid %.0fuu | Alt+G toggle | Alt+Up/Down adjust", gridSize)
+log("loaded - grid %.0fuu | Alt+F toggle | Alt+Up/Down adjust", gridSize)

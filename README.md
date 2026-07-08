@@ -1,6 +1,6 @@
 # FarmGrid
 
-Grid-snapped crop planting for [Windrose](https://store.steampowered.com/app/2372000/), inspired by the Valheim [FarmGrid](https://www.nexusmods.com/valheim/mods/449) mod. A [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) Lua mod that snaps crop placement — both the ghost preview and the final planted position — to a configurable grid, so your rows come out straight.
+Grid-snapped crop planting for [Windrose](https://store.steampowered.com/app/2372000/), inspired by the Valheim [FarmGrid](https://thunderstore.io/c/valheim/p/Galateam/FarmGrid/) mod. A [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) Lua mod that snaps crop placement - both the ghost preview and the final planted position - to a configurable grid, so your rows come out straight.
 
 ## Features
 
@@ -12,7 +12,7 @@ Grid-snapped crop planting for [Windrose](https://store.steampowered.com/app/237
 
 | Key        | Action                              |
 | ---------- | ----------------------------------- |
-| `Alt+G`    | Toggle grid snapping on/off         |
+| `Alt+F`    | Toggle grid snapping on/off         |
 | `Alt+Up`   | Increase grid size by 10uu          |
 | `Alt+Down` | Decrease grid size by 10uu (min 10) |
 
@@ -32,11 +32,11 @@ ue4ss/Mods/FarmGrid/
 
 ## How it works
 
-Windrose's building placement runs through the Gameplay Ability System: the placement transform travels inside a `UR5BuildingCommand_PreConstruct` object wrapped in GAS target data. The mod catches that command object on creation and snaps its transform in the `MakePreConstructRequest` pre-hook — before the ability validates and serializes it, which is why a client-side install is enough for multiplayer.
+Windrose's building placement runs through the Gameplay Ability System: the placement transform travels inside a `UR5BuildingCommand_PreConstruct` object wrapped in GAS target data. The mod catches that command object on creation and snaps its transform in the `MakePreConstructRequest` pre-hook - before the ability validates and serializes it, which is why a client-side install is enough for multiplayer.
 
-The ghost preview actor's transform is rewritten natively every tick, so the mod instead offsets the preview's mesh components by `(snapped − raw)`, which nothing races against.
+The ghost preview actor's transform is rewritten natively every tick, so the mod instead offsets the preview's mesh components by `(snapped - raw)`, which nothing races against.
 
-Known quirk: the preview's valid/invalid (green/red) tint reflects the raw cursor position, not the snapped cell — occasionally it shows red until you nudge the mouse. Placement itself always validates against the snapped position.
+Known quirk: the preview's valid/invalid (green/red) tint reflects the raw cursor position, not the snapped cell - occasionally it shows red until you nudge the mouse. Placement itself always validates against the snapped position.
 
 ## Development
 
