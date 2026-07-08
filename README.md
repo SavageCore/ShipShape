@@ -6,24 +6,22 @@ Grid-snapped crop planting for [Windrose](https://store.steampowered.com/app/237
 
 - Crops snap to a grid (default 40uu) during placement
 - Ghost preview shows the snapped position in real time
-- Structural farming pieces (soil, seedbeds, flowerbeds, trellises, craft stations) keep the game's native edge snapping — only actual crops are grid-snapped
 - Works in multiplayer with a client-side install only: the snap is applied before the placement command is serialized, so the server receives (and replicates) the snapped coordinates
 
 ## Keybinds
 
-| Key | Action |
-|---|---|
-| `Alt+G` | Toggle grid snapping on/off |
-| `Alt+Up` | Increase grid size by 10uu |
+| Key        | Action                              |
+| ---------- | ----------------------------------- |
+| `Alt+G`    | Toggle grid snapping on/off         |
+| `Alt+Up`   | Increase grid size by 10uu          |
 | `Alt+Down` | Decrease grid size by 10uu (min 10) |
 
 ## Install
 
 Requires UE4SS installed in the game (`Windrose/R5/Binaries/Win64/ue4ss/`).
 
-1. Create `ue4ss/Mods/FarmGrid/Scripts/`
-2. Copy `src/main.lua` into it
-3. Create an empty `ue4ss/Mods/FarmGrid/enabled.txt`
+1. Download the zip from the [latest release](https://github.com/SavageCore/FarmGrid/releases/latest)
+2. Extract it into `ue4ss/Mods/` so you end up with:
 
 ```
 ue4ss/Mods/FarmGrid/
@@ -42,7 +40,12 @@ Known quirk: the preview's valid/invalid (green/red) tint reflects the raw curso
 
 ## Development
 
-`src/main.lua` is the whole mod. Symlink it into the game's `Scripts/` folder and use UE4SS's *Restart All Mods* to iterate.
+`src/main.lua` is the whole mod. Symlink it into the game's `Scripts/` folder and use UE4SS's _Restart All Mods_ to iterate:
+
+```sh
+ln -s "$(pwd)/src/main.lua" \
+  "$HOME/.local/share/Steam/steamapps/common/Windrose/R5/Binaries/Win64/ue4ss/Mods/FarmGrid/Scripts/main.lua"
+```
 
 Linting is [luacheck](https://github.com/lunarmodules/luacheck), run in CI and as a [lefthook](https://lefthook.dev) pre-commit hook:
 

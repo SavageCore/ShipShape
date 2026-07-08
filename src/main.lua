@@ -119,6 +119,9 @@ local function restoreMeshes()
 end
 
 local function updatePreview()
+    -- two queued closures can race: the first nils a dead preview, the
+    -- second then sees the nil upvalue
+    if not preview then return end
     if not preview:IsValid() then
         preview = nil
         return
