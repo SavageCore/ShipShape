@@ -18,20 +18,6 @@ Grid-snapped crop planting for [Windrose](https://store.steampowered.com/app/304
 | `Alt+Up`   | Increase grid size by 10uu          |
 | `Alt+Down` | Decrease grid size by 10uu (min 10) |
 
-## Install
-
-Requires UE4SS installed in the game (`Windrose/R5/Binaries/Win64/ue4ss/`).
-
-1. Download the zip from the [latest release](https://github.com/SavageCore/ShipShape/releases/latest)
-2. Extract it into `ue4ss/Mods/` so you end up with:
-
-```
-ue4ss/Mods/ShipShape/
-├── enabled.txt
-└── Scripts/
-    └── main.lua
-```
-
 ## How it works
 
 Windrose's building placement runs through the Gameplay Ability System: the placement transform travels inside a `UR5BuildingCommand_PreConstruct` object wrapped in GAS target data. The mod catches that command object on creation and snaps its transform in the `MakePreConstructRequest` pre-hook - before the ability validates and serializes it, which is why a client-side install is enough for multiplayer.
@@ -40,13 +26,72 @@ The ghost preview actor's transform is rewritten natively every tick, so the mod
 
 Known quirk: the preview's valid/invalid (green/red) tint reflects the raw cursor position, not the snapped cell - occasionally it shows red until you nudge the mouse. Placement itself always validates against the snapped position.
 
+## Requirements
+
+- [UE4SS (experimental-latest)](https://github.com/UE4SS-RE/RE-UE4SS/releases/tag/experimental-latest)
+
+## Install
+
+### 1. Install UE4SS
+
+Extract the `dwmapi.dll` and `ue4ss` folder to the `R5\Binaries\Win64` directory.
+
+> **Linux tip:** Set your launch option to `WINEDLLOVERRIDES="dwmapi=n,b" %command%` to load UE4SS.
+
+### 2. Configure UE4SS
+
+Open `UE4SS-settings.ini` and update the `[EngineVersionOverride]` section:
+
+```ini
+[EngineVersionOverride]
+MajorVersion = 5
+MinorVersion = 6
+```
+
+### 3. Install the Mod
+
+Download the [latest release](https://github.com/SavageCore/ShipShape/releases/latest) and extract it to `R5/Binaries/Win64/ue4ss/Mods/`.
+
+You should end up with:
+
+```
+ue4ss/Mods/ShipShape/
+├── enabled.txt
+└── Scripts/
+    └── main.lua
+```
+
 ## Development
 
-`src/main.lua` is the whole mod. Symlink it into the game's `Scripts/` folder and use UE4SS's _Restart All Mods_ to iterate:
+### Prerequisites
 
-```sh
-ln -s "$(pwd)/src/main.lua" \
-  "$HOME/.local/share/Steam/steamapps/common/Windrose/R5/Binaries/Win64/ue4ss/Mods/ShipShape/Scripts/main.lua"
+- `make`
+- A local Windrose installation (Linux/Steam or override path)
+
+### Build & Install
+
+Symlink the mod directly into your game's Mods folder:
+
+```bash
+make install
+```
+
+The default install path is:
+
+```
+~/.local/share/Steam/steamapps/common/Windrose/R5/Binaries/Win64/ue4ss/Mods
+```
+
+Override it for a custom location:
+
+```bash
+make install INSTALL_DIR=/path/to/ue4ss/Mods
+```
+
+Build only (output goes to `build/ShipShape/`):
+
+```bash
+make build
 ```
 
 Linting is [luacheck](https://github.com/lunarmodules/luacheck), run in CI and as a [lefthook](https://lefthook.dev) pre-commit hook:
@@ -54,3 +99,5 @@ Linting is [luacheck](https://github.com/lunarmodules/luacheck), run in CI and a
 ```sh
 lefthook install
 ```
+
+

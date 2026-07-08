@@ -1,4 +1,4 @@
-name: release
+name: Release
 
 on:
   push:
@@ -8,17 +8,26 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v7
-      - name: Package mod
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Derive version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Assemble mod package
         run: |
           mkdir -p ShipShape/Scripts
-          touch ShipShape/enabled.txt
           cp src/main.lua ShipShape/Scripts/main.lua
-          zip -r "ShipShape-${GITHUB_REF_NAME}.zip" ShipShape
-      - uses: softprops/action-gh-release@v3
+          touch ShipShape/enabled.txt
+          zip -r "ShipShape-${{ steps.version.outputs.version }}.zip" ShipShape/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
         with:
-          files: ShipShape-*.zip
+          files: "ShipShape-${{ steps.version.outputs.version }}.zip"
           generate_release_notes: true
