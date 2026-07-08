@@ -1,6 +1,6 @@
 # ShipShape
 
-Grid-snapped crop planting for [Windrose](https://store.steampowered.com/app/2372000/), inspired by the Valheim [FarmGrid](https://thunderstore.io/c/valheim/p/Galateam/FarmGrid/) mod. A [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) Lua mod that snaps crop placement - both the ghost preview and the final planted position - to a configurable grid, so your rows come out straight.
+Grid-snapped crop planting for [Windrose](https://store.steampowered.com/app/3041230/Windrose/), inspired by the Valheim [FarmGrid](https://thunderstore.io/c/valheim/p/Galateam/FarmGrid/) mod. A [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) Lua mod that snaps crop placement - both the ghost preview and the final planted position - to a configurable grid, so your rows come out straight.
 
 ## Features
 
@@ -20,7 +20,7 @@ Grid-snapped crop planting for [Windrose](https://store.steampowered.com/app/237
 
 Requires UE4SS installed in the game (`Windrose/R5/Binaries/Win64/ue4ss/`).
 
-1. Download the zip from the [latest release](https://github.com/SavageCore/FarmGrid/releases/latest)
+1. Download the zip from the [latest release](https://github.com/SavageCore/ShipShape/releases/latest)
 2. Extract it into `ue4ss/Mods/` so you end up with:
 
 ```
