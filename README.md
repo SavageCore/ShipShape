@@ -2,6 +2,8 @@
 
 Grid-snapped crop planting for [Windrose](https://store.steampowered.com/app/3041230/Windrose/), inspired by the Valheim [FarmGrid](https://thunderstore.io/c/valheim/p/Galateam/FarmGrid/) mod. A [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) Lua mod that snaps crop placement - both the ghost preview and the final planted position - to a configurable grid, so your rows come out straight.
 
+![Preview](assets/preview.png)
+
 ## Features
 
 - Crops snap to a grid (default 40uu) during placement
