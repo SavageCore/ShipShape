@@ -89,11 +89,11 @@ local function showMessageImpl(text)
                 log("msg error: no GameInstance")
                 return
             end
-            -- RF_MarkAsRootSet (0x8): nothing else references the widget, so
-            -- keep it out of GC's reach
+            -- nothing strong-references the widget, so GC may collect it;
+            -- the IsValid check above recreates it when that happens
             msgWidget = StaticConstructObject(
                 StaticFindObject("/Script/UMG.TextBlock"), gi,
-                FName("ShipShapeMsg"), 0x8)
+                FName("ShipShapeMsg"), 0)
             pcall(function() msgWidget:SetJustification(1) end) -- center
         end
         msgWidget:SetText(makeText(text))
@@ -190,16 +190,109 @@ local function restoreMeshes()
     offsetApplied = false
 end
 
+-- Valheim-style grid overlay while placing. DrawDebugLine is compiled out of
+-- this shipping build and no HUD blueprint implements ReceiveDrawHUD, so the
+-- grid is thin Image widgets reprojected to screen space every preview tick.
+-- ponytail: flat plane at preview Z, no terrain conforming - add per-vertex
+-- line traces if slopes make it useless.
+local GRID_CELLS = 4
+local NUM_LINES = (GRID_CELLS + 1) * 2
+local gridWidgets = nil
+local gridVisible = false
+local layoutLib = StaticFindObject("/Script/UMG.Default__WidgetLayoutLibrary")
+local statics = StaticFindObject("/Script/Engine.Default__GameplayStatics")
+
+local function ensureGridWidgets()
+    -- nothing strong-references these widgets, so GC (e.g. the pass the game
+    -- runs on alt-tab focus loss) collects them; passing a dangling pointer
+    -- to IsWidgetAdded crashed in FObjectKey's weak-ptr ctor. Validate every
+    -- tick and rebuild the pool after a collection, like msgWidget does.
+    if gridWidgets and gridWidgets[1]:IsValid() then return true end
+    local gi = FindFirstOf("GameInstance")
+    if not gi:IsValid() then return false end
+    local imgClass = StaticFindObject("/Script/UMG.Image")
+    gridWidgets = {}
+    for i = 1, NUM_LINES do
+        local w = StaticConstructObject(imgClass, gi, FName("ShipShapeGrid" .. i), 0)
+        w:SetColorAndOpacity({ R = 0.8, G = 0.8, B = 0.8, A = 0.55 })
+        w:SetVisibility(3) -- HitTestInvisible
+        gridWidgets[i] = w
+    end
+    return true
+end
+
+local function hideGrid()
+    if not gridVisible then return end
+    gridVisible = false
+    local vps = viewportSubsystem()
+    if not vps:IsValid() then return end
+    for _, w in ipairs(gridWidgets) do
+        if w:IsValid() and vps:IsWidgetAdded(w) then vps:RemoveWidget(w) end
+    end
+end
+
+local function project(pc, x, y, z)
+    local out = {}
+    if not layoutLib:ProjectWorldLocationToWidgetPosition(
+            pc, { X = x, Y = y, Z = z }, out, false) then
+        return nil
+    end
+    return out.X, out.Y
+end
+
+local function placeLine(vps, w, ax, ay, bx, by)
+    local dx, dy = bx - ax, by - ay
+    local slot = {
+        Anchors = { Minimum = { X = 0, Y = 0 }, Maximum = { X = 0, Y = 0 } },
+        Offsets = { Left = (ax + bx) / 2, Top = (ay + by) / 2,
+            Right = math.sqrt(dx * dx + dy * dy), Bottom = 2 },
+        Alignment = { X = 0.5, Y = 0.5 },
+        ZOrder = 999,
+        bAutoRemoveOnWorldRemoved = true,
+    }
+    if vps:IsWidgetAdded(w) then vps:SetWidgetSlot(w, slot)
+    else vps:AddWidget(w, slot) end
+    w:SetRenderTransformAngle(math.deg(math.atan(dy, dx)))
+end
+
+local function drawGrid(cx, cy, z)
+    if not ensureGridWidgets() then return end
+    local vps = viewportSubsystem()
+    local pc = statics:GetPlayerController(preview, 0)
+    if not (vps:IsValid() and pc:IsValid()) then return end
+    local half = GRID_CELLS / 2 * gridSize
+    local n = 0
+    for i = -GRID_CELLS / 2, GRID_CELLS / 2 do
+        local o = i * gridSize
+        for _, seg in ipairs({
+            { cx - half, cy + o, cx + half, cy + o },
+            { cx + o, cy - half, cx + o, cy + half },
+        }) do
+            n = n + 1
+            local w = gridWidgets[n]
+            local ax, ay = project(pc, seg[1], seg[2], z)
+            local bx, by = project(pc, seg[3], seg[4], z)
+            if ax and bx then placeLine(vps, w, ax, ay, bx, by)
+            elseif vps:IsWidgetAdded(w) then vps:RemoveWidget(w) end
+        end
+    end
+    gridVisible = true
+end
+
 local function updatePreview()
     -- two queued closures can race: the first nils a dead preview, the
     -- second then sees the nil upvalue
     if not preview then return end
     if not preview:IsValid() then
         preview = nil
+        hideGrid()
         return
     end
     local brush = preview.BuildingBrush
-    if not brush:IsValid() then return end
+    if not brush:IsValid() then
+        hideGrid()
+        return
+    end
     local brushName = brush:GetFullName()
     if brushName ~= lastBrush then
         -- brush changed: the game may have rebuilt the preview meshes, so the
@@ -210,10 +303,12 @@ local function updatePreview()
     end
     if not (snapEnabled and isCropName(brushName)) then
         restoreMeshes()
+        hideGrid()
         return
     end
     local loc = preview:K2_GetActorLocation()
     local dx, dy = Snap(loc.X) - loc.X, Snap(loc.Y) - loc.Y
+    drawGrid(Snap(loc.X), Snap(loc.Y), loc.Z + 2)
     -- world-space delta -> actor-local (undo the preview's yaw)
     local yaw = math.rad(preview:K2_GetActorRotation().Yaw)
     local c, s = math.cos(-yaw), math.sin(-yaw)
@@ -233,10 +328,19 @@ end
 
 -- 33ms and only dispatching while a preview is alive: the always-on 16ms
 -- dispatch + object scans crashed inside UE4SS (access violation).
+-- inFlight: never queue a second closure before the first ran. When the game
+-- is unfocused (alt-tab) Proton throttles the game thread, queued closures
+-- pile up and then execute in a burst inside one ProcessEvent - crashed with
+-- an access violation on the game thread (crash_2026_07_08_11_25_39).
+local inFlight = false
+local inFlightSince = 0.0
 LoopAsync(33, function()
-    if preview then
+    if preview and (not inFlight or os.clock() - inFlightSince > 2.0) then
+        inFlight = true
+        inFlightSince = os.clock()
         ExecuteInGameThread(function()
             local ok, err = pcall(updatePreview)
+            inFlight = false
             if not ok then diag("preview error: %s", tostring(err)) end
         end)
     end
