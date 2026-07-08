@@ -12,10 +12,24 @@ local snapEnabled = true
 local function Snap(v) return math.floor(v / gridSize + 0.5) * gridSize end
 local function log(fmt, ...) print(("[FarmGrid] " .. fmt .. "\n"):format(...)) end
 
+-- Structural farming pieces (plots, beds, stations) keep the game's native
+-- edge snapping; grid-snapping them tears them apart.
+local EXCLUDE = { "Soil", "Seedbed", "Flowerbed", "Craftstation", "Trellis" }
+
 local function isCrop(cmd)
     local ok, res = pcall(function()
-        return cmd.BuildingItem:IsValid()
-           and cmd.BuildingItem:GetFullName():find("_BI_Farming_") ~= nil
+        local item = cmd.BuildingItem
+        if not item:IsValid() then return false end
+        local name = item:GetFullName()
+        if not name:find("_BI_Farming_") then return false end
+        for _, ex in ipairs(EXCLUDE) do
+            if name:find(ex) then
+                log("skipping %s (structural)", name:match("[^%.]+$") or name)
+                return false
+            end
+        end
+        log("item %s type=%s", name:match("[^%.]+$") or name, tostring(item.WorldActorType))
+        return true
     end)
     return ok and res
 end
