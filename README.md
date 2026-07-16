@@ -7,16 +7,19 @@ Grid-snapped crop planting for [Windrose](https://store.steampowered.com/app/304
 ## Features
 
 - Crops snap to a grid (default 40uu) during placement
+- Grid can be rotated in 15° steps to match an off-axis layout
 - Ghost preview shows the snapped position in real time
 - Works in multiplayer with a client-side install only: the snap is applied before the placement command is serialized, so the server receives (and replicates) the snapped coordinates
 
 ## Keybinds
 
-| Key        | Action                              |
-| ---------- | ----------------------------------- |
-| `Alt+F`    | Toggle grid snapping on/off         |
-| `Alt+Up`   | Increase grid size by 10uu          |
-| `Alt+Down` | Decrease grid size by 10uu (min 10) |
+| Key          | Action                              |
+| ------------ | ----------------------------------- |
+| `Alt+F`      | Toggle grid snapping on/off         |
+| `Alt+Up`     | Increase grid size by 10uu          |
+| `Alt+Down`   | Decrease grid size by 10uu (min 10) |
+| `Alt+Left`   | Rotate grid 15° counter-clockwise   |
+| `Alt+Right`  | Rotate grid 15° clockwise           |
 
 ## How it works
 

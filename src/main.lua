@@ -1,9 +1,20 @@
 -- ShipShape: grid-snaps crop placement in Windrose (client-side).
 local VERSION = "0.1.0"
 local gridSize = 40.0 -- UU per cell; Alt+Up / Alt+Down tunes in 10uu steps
+local gridAngleDeg = 0.0 -- Alt+Left / Alt+Right rotates in 15deg steps
 local snapEnabled = true
 
 local function Snap(v) return math.floor(v / gridSize + 0.5) * gridSize end
+
+-- Snap a world XY onto a lattice rotated by gridAngleDeg: rotate into grid
+-- space, snap each axis, rotate back.
+local function SnapXY(x, y)
+    if gridAngleDeg == 0 then return Snap(x), Snap(y) end
+    local a = math.rad(gridAngleDeg)
+    local c, s = math.cos(a), math.sin(a)
+    local gx, gy = Snap(c * x + s * y), Snap(-s * x + c * y)
+    return c * gx - s * gy, s * gx + c * gy
+end
 local function log(fmt, ...) print(("[ShipShape] " .. fmt .. "\n"):format(...)) end
 
 -- these keep native edge snapping;
@@ -39,8 +50,7 @@ RegisterHook("/Script/R5.R5Ability_Building_MakeConstructCommand:MakePreConstruc
             if not isCrop(cmd) then return end
             local t = cmd.Transform
             local loc = t.Translation
-            loc.X = Snap(loc.X)
-            loc.Y = Snap(loc.Y)
+            loc.X, loc.Y = SnapXY(loc.X, loc.Y)
             t.Translation = loc
             cmd.Transform = t
         end)
@@ -136,6 +146,16 @@ end)
 RegisterKeyBind(Key.DOWN_ARROW, { ModifierKey.ALT }, function()
     gridSize = math.max(10, gridSize - 10)
     notify("grid size %.0f", gridSize)
+end)
+
+RegisterKeyBind(Key.LEFT_ARROW, { ModifierKey.ALT }, function()
+    gridAngleDeg = (gridAngleDeg - 15) % 90
+    notify("grid angle %.0f", gridAngleDeg)
+end)
+
+RegisterKeyBind(Key.RIGHT_ARROW, { ModifierKey.ALT }, function()
+    gridAngleDeg = (gridAngleDeg + 15) % 90
+    notify("grid angle %.0f", gridAngleDeg)
 end)
 
 -- Ghost preview: the game rewrites the preview actor transform every tick,
@@ -249,6 +269,12 @@ local function drawGrid(cx, cy, z)
     local pc = statics:GetPlayerController(preview, 0)
     if not (vps:IsValid() and pc:IsValid()) then return end
     local half = GRID_CELLS / 2 * gridSize
+    local rotA = math.rad(gridAngleDeg)
+    local rc, rs = math.cos(rotA), math.sin(rotA)
+    local function rot(px, py)
+        local ex, ey = px - cx, py - cy
+        return cx + rc * ex - rs * ey, cy + rs * ex + rc * ey
+    end
     local n = 0
     for i = -GRID_CELLS / 2, GRID_CELLS / 2 do
         local o = i * gridSize
@@ -258,8 +284,10 @@ local function drawGrid(cx, cy, z)
         }) do
             n = n + 1
             local w = gridWidgets[n]
-            local ax, ay = project(pc, seg[1], seg[2], z)
-            local bx, by = project(pc, seg[3], seg[4], z)
+            local rax, ray = rot(seg[1], seg[2])
+            local rbx, rby = rot(seg[3], seg[4])
+            local ax, ay = project(pc, rax, ray, z)
+            local bx, by = project(pc, rbx, rby, z)
             if ax and bx then
                 placeLine(vps, w, ax, ay, bx, by)
             elseif vps:IsWidgetAdded(w) then
@@ -296,8 +324,9 @@ local function updatePreview()
         return
     end
     local loc = preview:K2_GetActorLocation()
-    local dx, dy = Snap(loc.X) - loc.X, Snap(loc.Y) - loc.Y
-    drawGrid(Snap(loc.X), Snap(loc.Y), loc.Z + 2)
+    local sx, sy = SnapXY(loc.X, loc.Y)
+    local dx, dy = sx - loc.X, sy - loc.Y
+    drawGrid(sx, sy, loc.Z + 2)
     -- world-space delta -> actor-local (undo the preview's yaw)
     local yaw = math.rad(preview:K2_GetActorRotation().Yaw)
     local c, s = math.cos(-yaw), math.sin(-yaw)
@@ -332,4 +361,5 @@ LoopAsync(33, function()
     return false
 end)
 
-log("v%s loaded - grid %.0fuu | Alt+F toggle | Alt+Up/Down adjust", VERSION, gridSize)
+log("v%s loaded - grid %.0fuu | Alt+F toggle | Alt+Up/Down size | Alt+Left/Right rotate",
+    VERSION, gridSize)
