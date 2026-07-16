@@ -8,6 +8,7 @@ Grid-snapped crop planting for [Windrose](https://store.steampowered.com/app/304
 
 - Crops snap to a grid (default 40uu) during placement
 - Grid can be rotated in 15° steps to match an off-axis layout
+- Settings persist across restarts (`ShipShape.cfg.lua`, next to the mod's `main.lua`)
 - Ghost preview shows the snapped position in real time
 - Works in multiplayer with a client-side install only: the snap is applied before the placement command is serialized, so the server receives (and replicates) the snapped coordinates
 

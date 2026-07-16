@@ -17,6 +17,42 @@ local function SnapXY(x, y)
 end
 local function log(fmt, ...) print(("[ShipShape] " .. fmt .. "\n"):format(...)) end
 
+-- Settings persist next to this script as a plain Lua table literal.
+local CONFIG_PATH = (debug.getinfo(1, "S").source:match("^@?(.*[/\\])") or "") .. "ShipShape.cfg.lua"
+
+local function saveConfig()
+    local f = io.open(CONFIG_PATH, "w")
+    if not f then
+        log("config save error: could not open %s", CONFIG_PATH)
+        return
+    end
+    f:write(("return { gridSize = %.1f, gridAngleDeg = %.1f, snapEnabled = %s }\n")
+        :format(gridSize, gridAngleDeg, tostring(snapEnabled)))
+    f:close()
+end
+
+local function loadConfig()
+    local f = io.open(CONFIG_PATH, "r")
+    if not f then return end
+    local content = f:read("*a")
+    f:close()
+    local chunk, chunkErr = load(content, "ShipShapeConfig", "t", {})
+    if not chunk then
+        log("config load error: %s", chunkErr)
+        return
+    end
+    local ok, cfg = pcall(chunk)
+    if not ok or type(cfg) ~= "table" then
+        log("config load error: %s", tostring(cfg))
+        return
+    end
+    if type(cfg.gridSize) == "number" then gridSize = cfg.gridSize end
+    if type(cfg.gridAngleDeg) == "number" then gridAngleDeg = cfg.gridAngleDeg end
+    if type(cfg.snapEnabled) == "boolean" then snapEnabled = cfg.snapEnabled end
+end
+
+loadConfig()
+
 -- these keep native edge snapping;
 local EXCLUDE = { "Seedbed" }
 
@@ -136,26 +172,31 @@ end
 RegisterKeyBind(Key.F, { ModifierKey.ALT }, function()
     snapEnabled = not snapEnabled
     notify("snapping %s", snapEnabled and "ON" or "OFF")
+    saveConfig()
 end)
 
 RegisterKeyBind(Key.UP_ARROW, { ModifierKey.ALT }, function()
     gridSize = gridSize + 10
     notify("grid size %.0f", gridSize)
+    saveConfig()
 end)
 
 RegisterKeyBind(Key.DOWN_ARROW, { ModifierKey.ALT }, function()
     gridSize = math.max(10, gridSize - 10)
     notify("grid size %.0f", gridSize)
+    saveConfig()
 end)
 
 RegisterKeyBind(Key.LEFT_ARROW, { ModifierKey.ALT }, function()
     gridAngleDeg = (gridAngleDeg - 15) % 90
     notify("grid angle %.0f", gridAngleDeg)
+    saveConfig()
 end)
 
 RegisterKeyBind(Key.RIGHT_ARROW, { ModifierKey.ALT }, function()
     gridAngleDeg = (gridAngleDeg + 15) % 90
     notify("grid angle %.0f", gridAngleDeg)
+    saveConfig()
 end)
 
 -- Ghost preview: the game rewrites the preview actor transform every tick,
