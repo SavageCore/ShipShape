@@ -1,6 +1,6 @@
 -- ShipShape: grid-snaps crop placement in Windrose (client-side).
-local VERSION = "0.1.0"
-local gridSize = 40.0 -- UU per cell; Alt+Up / Alt+Down tunes in 10uu steps
+local VERSION = "0.2.0"
+local gridSize = 40.0    -- UU per cell; Alt+Up / Alt+Down tunes in 10uu steps
 local gridAngleDeg = 0.0 -- Alt+Left / Alt+Right rotates in 15deg steps
 local snapEnabled = true
 
